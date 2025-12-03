@@ -61,7 +61,7 @@
 
         .intervals-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(5, 1fr);
             gap: 12px;
             margin-bottom: 20px;
         }
@@ -120,6 +120,9 @@
         @media (max-width: 768px) {
             .intervals-grid { grid-template-columns: repeat(2, 1fr); }
             .symbols-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 1024px) and (min-width: 769px) {
+            .intervals-grid { grid-template-columns: repeat(3, 1fr); }
         }
     </style>
 </head>

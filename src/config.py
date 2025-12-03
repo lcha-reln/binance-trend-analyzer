@@ -10,7 +10,7 @@ BINANCE_BASE_URL = "https://api.binance.com"
 SYMBOLS = ["BTCUSDT", "ETHUSDT"]
 
 # K线周期配置
-INTERVALS = ["30m", "1h", "4h", "1d"]
+INTERVALS = ["5m", "30m", "1h", "4h", "1d"]
 
 # 数据获取配置
 KLINE_LIMIT = 1000  # 获取最近1000根K线用于分析
