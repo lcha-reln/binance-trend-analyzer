@@ -140,7 +140,7 @@ class TrendAnalyzer:
         bearish_count = len(bearish_intervals)
 
         # 计算加权总分（大周期权重更高）
-        interval_weights = {'30m': 1.0, '1h': 1.5, '4h': 2.0, '1d': 3.0}
+        interval_weights = {'5m': 0.5, '15m': 0.8, '30m': 1.0, '1h': 1.5, '4h': 2.0, '1d': 3.0}
         weighted_score = 0
         total_weight = 0
 
