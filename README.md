@@ -25,6 +25,13 @@
 - 交易胜率分析
 - 置信度分组统计
 
+### 机器学习预测
+- **XGBoost 模型**: 基于30+技术特征的梯度提升分类器
+- **LSTM 模型**: 深度学习时序预测（可选）
+- 自动特征工程
+- 三分类预测（上涨/横盘/下跌）
+- 概率分布输出
+
 ### 可视化
 - **趋势面板**: 实时刷新的多周期分析面板
 - **K线图表**: TradingView风格的专业K线图，支持MA/布林带/成交量显示切换、形态标记、支撑阻力线
@@ -73,6 +80,30 @@ python3 src/main.py
 
 ```bash
 python3 src/backtest.py
+```
+
+**训练机器学习模型:**
+
+```bash
+python3 src/ml_predictor.py
+```
+
+**在代码中使用ML预测:**
+
+```python
+from ml_predictor import MLPredictor
+from collector import get_klines
+from indicators import calculate_all_indicators
+
+# 获取数据并计算指标
+df = get_klines('BTCUSDT', '1h', 500)
+df = calculate_all_indicators(df)
+
+# 训练并预测
+predictor = MLPredictor('xgboost')  # 或 'lstm'
+predictor.train(df)
+result = predictor.predict(df)
+print(f"预测方向: {result['direction']}, 置信度: {result['confidence']:.2%}")
 ```
 
 ## 配置说明
@@ -151,11 +182,13 @@ binance-trend-analyzer/
 ├── requirements.txt      # 依赖
 ├── README.md             # 项目说明
 ├── CHANGELOG.md          # 更新日志
+├── models/               # 保存的ML模型
 └── src/
     ├── config.py         # 配置
     ├── collector.py      # 数据采集
     ├── indicators.py     # 技术指标 + K线形态 + 支撑阻力
-    ├── predictor.py      # 预测模型（深度优化版）
+    ├── predictor.py      # 规则预测模型
+    ├── ml_predictor.py   # 机器学习预测模型（XGBoost/LSTM）
     ├── analyzer.py       # 趋势分析
     ├── backtest.py       # 回测系统
     ├── main.py           # 命令行入口
