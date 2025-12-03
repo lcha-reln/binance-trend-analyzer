@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>币安趋势分析</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            padding: 20px 0 30px;
+        }
+        .header h1 { font-size: 28px; margin-bottom: 10px; }
+        .header .time { color: #888; font-size: 14px; }
+        .header .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        .status.loading { background: #f39c12; }
+        .status.ok { background: #27ae60; }
+        .status.error { background: #e74c3c; }
+
+        .container { max-width: 1400px; margin: 0 auto; }
+
+        .symbols-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+            gap: 20px;
+        }
+
+        .symbol-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 24px;
+            backdrop-filter: blur(10px);
+        }
+
+        .symbol-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .symbol-name { font-size: 24px; font-weight: bold; }
+        .symbol-price { font-size: 28px; font-weight: bold; }
+        .price-change { font-size: 16px; margin-left: 10px; }
+        .price-change.up { color: #00d4aa; }
+        .price-change.down { color: #ff6b6b; }
+
+        .intervals-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .interval-card {
+            background: rgba(255,255,255,0.03);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+        .interval-name { font-size: 14px; color: #888; margin-bottom: 8px; }
+        .interval-direction {
+            font-size: 16px;
+            font-weight: bold;
+            padding: 6px 12px;
+            border-radius: 8px;
+            display: inline-block;
+        }
+        .direction-bullish { background: rgba(0,212,170,0.2); color: #00d4aa; }
+        .direction-bearish { background: rgba(255,107,107,0.2); color: #ff6b6b; }
+        .direction-neutral { background: rgba(255,255,255,0.1); color: #888; }
+
+        .interval-meta { font-size: 12px; color: #666; margin-top: 8px; }
+        .interval-score { font-size: 13px; margin-top: 4px; }
+
+        .resonance-box {
+            background: linear-gradient(135deg, rgba(102,126,234,0.2), rgba(118,75,162,0.2));
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+        .resonance-title { font-size: 14px; color: #888; margin-bottom: 10px; }
+        .resonance-level { font-size: 20px; font-weight: bold; margin-bottom: 5px; }
+        .resonance-signal { font-size: 24px; font-weight: bold; }
+        .resonance-signal.bullish { color: #00d4aa; }
+        .resonance-signal.bearish { color: #ff6b6b; }
+        .resonance-signal.neutral { color: #f39c12; }
+        .resonance-confidence {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        .confidence-high { background: #27ae60; }
+        .confidence-medium { background: #f39c12; }
+        .confidence-low { background: #666; }
+
+        .footer {
+            text-align: center;
+            padding: 30px 0;
+            color: #666;
+            font-size: 12px;
+        }
+
+        @media (max-width: 768px) {
+            .intervals-grid { grid-template-columns: repeat(2, 1fr); }
+            .symbols-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>币安趋势分析</h1>
+            <div>
+                <span class="time" id="updateTime">加载中...</span>
+                <span class="status loading" id="status">刷新中</span>
+            </div>
+        </div>
+
+        <div class="symbols-grid" id="symbolsContainer">
+            <div style="text-align:center; padding: 50px; color: #888;">加载数据中...</div>
+        </div>
+
+        <div class="footer">
+            风险提示：以上分析仅供参考，不构成投资建议，投资有风险，入市需谨慎！
+        </div>
+    </div>
+
+    <script>
+        const refreshInterval = {{ refresh_interval }} * 1000;
+
+        function getDirectionClass(direction) {
+            if (direction.includes('涨') || direction.includes('多')) return 'bullish';
+            if (direction.includes('跌') || direction.includes('空')) return 'bearish';
+            return 'neutral';
+        }
+
+        function getConfidenceClass(confidence) {
+            if (['极高', '高', '中高'].includes(confidence)) return 'high';
+            if (confidence === '中') return 'medium';
+            return 'low';
+        }
+
+        function formatPrice(price) {
+            return price >= 1000 ? price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})
+                                 : price.toFixed(4);
+        }
+
+        function renderData(data) {
+            const container = document.getElementById('symbolsContainer');
+            let html = '';
+
+            for (const [symbol, symbolData] of Object.entries(data.symbols)) {
+                const firstInterval = Object.values(symbolData.intervals)[0];
+                const price = firstInterval.current_price;
+                const change = firstInterval.stats_24h?.price_change_percent || 0;
+                const changeClass = change >= 0 ? 'up' : 'down';
+                const changeSign = change >= 0 ? '+' : '';
+
+                html += `
+                    <div class="symbol-card">
+                        <div class="symbol-header">
+                            <span class="symbol-name">${symbol.replace('USDT', '/USDT')}</span>
+                            <div>
+                                <span class="symbol-price">$${formatPrice(price)}</span>
+                                <span class="price-change ${changeClass}">${changeSign}${change.toFixed(2)}%</span>
+                            </div>
+                        </div>
+
+                        <div class="intervals-grid">
+                `;
+
+                for (const [interval, iData] of Object.entries(symbolData.intervals)) {
+                    const pred = iData.prediction;
+                    const dirClass = getDirectionClass(pred.direction);
+                    html += `
+                        <div class="interval-card">
+                            <div class="interval-name">${interval}</div>
+                            <div class="interval-direction direction-${dirClass}">${pred.direction}</div>
+                            <div class="interval-score">评分: ${pred.score} (${pred.volume_weight.toFixed(1)}x)</div>
+                            <div class="interval-meta">置信度: ${pred.confidence}</div>
+                        </div>
+                    `;
+                }
+
+                const res = symbolData.resonance;
+                const resClass = getDirectionClass(res.signal);
+                const confClass = getConfidenceClass(res.confidence);
+
+                html += `
+                        </div>
+                        <div class="resonance-box">
+                            <div class="resonance-title">多周期共振分析</div>
+                            <div class="resonance-level">${res.resonance_level}</div>
+                            <div class="resonance-signal ${resClass}">${res.signal}</div>
+                            <div><span class="resonance-confidence confidence-${confClass}">置信度: ${res.confidence}</span></div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        async function fetchData() {
+            const status = document.getElementById('status');
+            status.textContent = '刷新中';
+            status.className = 'status loading';
+
+            try {
+                const response = await fetch('/api/analysis');
+                const result = await response.json();
+
+                if (result.success) {
+                    renderData(result.data);
+                    document.getElementById('updateTime').textContent = '更新于 ' + result.data.timestamp;
+                    status.textContent = '正常';
+                    status.className = 'status ok';
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                status.textContent = '错误';
+                status.className = 'status error';
+                console.error('获取数据失败:', error);
+            }
+        }
+
+        fetchData();
+        setInterval(fetchData, refreshInterval);
+    </script>
+</body>
+</html>
