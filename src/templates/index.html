@@ -258,6 +258,32 @@
             color: #4a90d9;
         }
 
+        /* 周期切换 Tab 样式 */
+        .advice-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        .advice-tab {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.05);
+            color: #888;
+            border: 1px solid transparent;
+            transition: all 0.2s ease;
+        }
+        .advice-tab:hover {
+            background: rgba(255,255,255,0.1);
+            color: #ccc;
+        }
+        .advice-tab.active {
+            background: rgba(74,144,217,0.2);
+            color: #4a90d9;
+            border-color: rgba(74,144,217,0.3);
+        }
+
         .footer {
             text-align: center;
             padding: 30px 0;
@@ -459,11 +485,29 @@
                         </div>
                 `;
 
-                // 显示1h周期的交易建议（作为主要参考周期）
-                const primaryInterval = '1h';
-                const primaryData = symbolData.intervals[primaryInterval];
-                if (primaryData && primaryData.trading_advice) {
-                    html += renderAdviceBox(primaryData.trading_advice, primaryInterval);
+                // 显示周期切换Tab和交易建议
+                const adviceIntervals = ['5m', '30m', '1h', '4h', '1d'];
+                const symbolId = symbol.replace(/[^a-zA-Z0-9]/g, '');
+
+                html += `<div class="advice-tabs">`;
+                for (const intv of adviceIntervals) {
+                    const hasAdvice = symbolData.intervals[intv]?.trading_advice;
+                    const activeClass = intv === '1h' ? 'active' : '';
+                    const disabledStyle = hasAdvice ? '' : 'opacity: 0.4; pointer-events: none;';
+                    html += `<span class="advice-tab ${activeClass}" style="${disabledStyle}"
+                                   data-symbol="${symbolId}" data-interval="${intv}">${intv}</span>`;
+                }
+                html += `</div>`;
+
+                // 渲染所有周期的建议，默认只显示1h
+                for (const intv of adviceIntervals) {
+                    const intvData = symbolData.intervals[intv];
+                    if (intvData && intvData.trading_advice) {
+                        const displayStyle = intv === '1h' ? '' : 'display: none;';
+                        html += `<div class="advice-content" data-symbol="${symbolId}" data-interval="${intv}" style="${displayStyle}">`;
+                        html += renderAdviceBox(intvData.trading_advice, intv);
+                        html += `</div>`;
+                    }
                 }
 
                 // 关闭 symbol-card div
@@ -471,6 +515,29 @@
             }
 
             container.innerHTML = html;
+
+            // 绑定Tab切换事件
+            bindAdviceTabs();
+        }
+
+        function bindAdviceTabs() {
+            document.querySelectorAll('.advice-tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const symbol = this.dataset.symbol;
+                    const interval = this.dataset.interval;
+
+                    // 切换Tab active状态
+                    document.querySelectorAll(`.advice-tab[data-symbol="${symbol}"]`).forEach(t => {
+                        t.classList.remove('active');
+                    });
+                    this.classList.add('active');
+
+                    // 切换内容显示
+                    document.querySelectorAll(`.advice-content[data-symbol="${symbol}"]`).forEach(content => {
+                        content.style.display = content.dataset.interval === interval ? '' : 'none';
+                    });
+                });
+            });
         }
 
         async function fetchData() {
