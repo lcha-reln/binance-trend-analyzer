@@ -1,6 +1,6 @@
 # Binance Trend Analyzer
 
-[![Version](https://img.shields.io/badge/version-1.6.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.8.0-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 > 币安交易对趋势分析与预测系统，支持多周期共振分析、智能交易建议、K线形态识别、机器学习预测
@@ -9,16 +9,24 @@
 
 ---
 
-## 最新更新 v1.6.0
+## 最新更新 v1.8.0
 
-### 性能大幅提升
+### 预测准确率统计 (NEW)
+- 自动记录每次预测并验证准确率
+- 按周期统计（5m/30m/1h/4h/1d）
+- 按置信度统计（极高/高/中高/中/低）
+- 前端实时展示准确率卡片
+- 数据本地持久化，保留7天历史
+
+### 多周期交易建议切换 (v1.7.0)
+- 交易建议支持 5m/30m/1h/4h/1d 周期切换
+- Tab 切换，默认显示 1h 周期
+- 各交易对独立切换，互不影响
+
+### 性能优化 (v1.6.0)
 | 指标 | 优化前 | 优化后 | 提升 |
 |------|--------|--------|------|
 | API响应时间 | 10-15秒 | **0.02秒** | 500倍 |
-
-- 并行数据获取（10线程）
-- 内存缓存 + 后台预加载
-- 页面秒级响应
 
 ### 智能交易建议 (v1.5.0)
 - 自动生成做多/做空/观望建议
@@ -144,24 +152,26 @@ python3 src/ml_predictor.py
 
 ```
 binance-trend-analyzer/
-├── requirements.txt      # 依赖
-├── README.md             # 项目说明
-├── CHANGELOG.md          # 更新日志
-├── models/               # 保存的ML模型
+├── requirements.txt        # 依赖
+├── README.md               # 项目说明
+├── CHANGELOG.md            # 更新日志
+├── models/                 # 保存的ML模型
+├── data/                   # 运行时数据（预测记录等）
 └── src/
-    ├── config.py         # 配置
-    ├── collector.py      # 数据采集
-    ├── data_cache.py     # 数据缓存（性能优化）
-    ├── indicators.py     # 技术指标 + K线形态 + 支撑阻力
-    ├── predictor.py      # 规则预测 + 交易建议
-    ├── ml_predictor.py   # 机器学习预测（XGBoost/LSTM）
-    ├── analyzer.py       # 趋势分析
-    ├── backtest.py       # 回测系统
-    ├── main.py           # 命令行入口
-    ├── app.py            # Web服务入口
+    ├── config.py           # 配置
+    ├── collector.py        # 数据采集
+    ├── data_cache.py       # 数据缓存（性能优化）
+    ├── indicators.py       # 技术指标 + K线形态 + 支撑阻力
+    ├── predictor.py        # 规则预测 + 交易建议
+    ├── prediction_tracker.py # 预测准确率追踪
+    ├── ml_predictor.py     # 机器学习预测（XGBoost/LSTM）
+    ├── analyzer.py         # 趋势分析
+    ├── backtest.py         # 回测系统
+    ├── main.py             # 命令行入口
+    ├── app.py              # Web服务入口
     └── templates/
-        ├── index.html    # 趋势面板页面
-        └── chart.html    # K线图表页面
+        ├── index.html      # 趋势面板页面
+        └── chart.html      # K线图表页面
 ```
 
 ---
@@ -172,6 +182,7 @@ binance-trend-analyzer/
 |------|------|
 | `/api/analysis` | 获取完整分析数据（含交易建议） |
 | `/api/klines` | 获取K线数据（用于图表） |
+| `/api/accuracy` | 获取预测准确率统计 |
 | `/api/cache-stats` | 获取缓存状态 |
 
 ---
