@@ -13,6 +13,7 @@ import pandas as pd
 from collector import get_klines, get_ticker_price, get_24h_stats
 from indicators import calculate_all_indicators
 from predictor import TrendPredictor
+from prediction_tracker import get_tracker
 from config import SYMBOLS, INTERVALS, KLINE_LIMIT
 
 
@@ -248,6 +249,9 @@ class DataCache:
                 # 多周期共振分析
                 results[symbol]['resonance'] = self._analyze_resonance(results[symbol])
 
+            # 记录预测并验证历史预测
+            self._track_predictions(results, all_prices)
+
             elapsed = time.time() - start_time
             print(f"[INFO] 数据更新完成，耗时 {elapsed:.2f}s")
 
@@ -341,6 +345,48 @@ class DataCache:
             'weighted_score': round(avg_weighted_score, 2),
             'directions': directions
         }
+
+    def _track_predictions(self, results: Dict, prices: Dict):
+        """
+        记录预测并验证历史预测
+
+        Args:
+            results: 分析结果
+            prices: 当前价格信息
+        """
+        tracker = get_tracker()
+
+        # 获取当前价格字典
+        current_prices = {
+            symbol: info.get('price')
+            for symbol, info in prices.items()
+            if info.get('price')
+        }
+
+        # 验证历史预测
+        tracker.verify_predictions(current_prices)
+
+        # 记录新预测
+        for symbol, symbol_data in results.items():
+            for interval, data in symbol_data.items():
+                if interval == 'resonance' or data is None:
+                    continue
+
+                prediction = data.get('prediction', {})
+                direction = prediction.get('overall_direction', '')
+                confidence = prediction.get('confidence', '')
+                score = prediction.get('score', 0)
+                price = data.get('current_price', 0)
+
+                if direction and price > 0:
+                    tracker.record_prediction(
+                        symbol=symbol,
+                        interval=interval,
+                        direction=direction,
+                        confidence=confidence,
+                        score=score,
+                        price=price
+                    )
 
     def start_background_update(self, interval: float = 30.0):
         """

@@ -284,6 +284,87 @@
             border-color: rgba(74,144,217,0.3);
         }
 
+        /* 准确率统计样式 */
+        .accuracy-section {
+            margin-bottom: 25px;
+        }
+        .accuracy-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+        .accuracy-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .accuracy-title {
+            font-size: 16px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .accuracy-overall {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .accuracy-overall.high { color: #00d4aa; }
+        .accuracy-overall.medium { color: #f39c12; }
+        .accuracy-overall.low { color: #ff6b6b; }
+        .accuracy-stats {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .accuracy-stat-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        .accuracy-stat-title {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 8px;
+        }
+        .accuracy-stat-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .accuracy-stat-item {
+            background: rgba(255,255,255,0.03);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+        .accuracy-stat-item .label {
+            color: #888;
+            margin-right: 6px;
+        }
+        .accuracy-stat-item .value {
+            font-weight: 600;
+        }
+        .accuracy-stat-item .value.high { color: #00d4aa; }
+        .accuracy-stat-item .value.medium { color: #f39c12; }
+        .accuracy-stat-item .value.low { color: #ff6b6b; }
+        .accuracy-meta {
+            display: flex;
+            gap: 15px;
+            font-size: 12px;
+            color: #666;
+            margin-top: 12px;
+        }
+        .accuracy-empty {
+            text-align: center;
+            color: #666;
+            padding: 15px;
+            font-size: 13px;
+        }
+
         .footer {
             text-align: center;
             padding: 30px 0;
@@ -310,6 +391,12 @@
                 <a href="/chart" style="color:#4a90d9; text-decoration:none; margin-right:15px; font-size:14px;">K线图表</a>
                 <span class="time" id="updateTime">加载中...</span>
                 <span class="status loading" id="status">刷新中</span>
+            </div>
+        </div>
+
+        <div class="accuracy-section" id="accuracySection">
+            <div class="accuracy-card">
+                <div class="accuracy-empty">准确率统计加载中...</div>
             </div>
         </div>
 
@@ -540,6 +627,100 @@
             });
         }
 
+        function getAccuracyClass(accuracy) {
+            if (accuracy >= 60) return 'high';
+            if (accuracy >= 45) return 'medium';
+            return 'low';
+        }
+
+        function renderAccuracyStats(data) {
+            const section = document.getElementById('accuracySection');
+
+            if (!data || data.verified_count === 0) {
+                section.innerHTML = `
+                    <div class="accuracy-card">
+                        <div class="accuracy-empty">
+                            暂无已验证的预测数据，系统将在预测后自动验证准确率
+                            <br><small style="color:#555">（待验证: ${data?.pending_count || 0} 条）</small>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            const overallClass = getAccuracyClass(data.overall_accuracy);
+
+            // 按周期统计
+            let intervalHtml = '';
+            const intervals = ['5m', '30m', '1h', '4h', '1d'];
+            for (const intv of intervals) {
+                const stat = data.by_interval[intv];
+                if (stat) {
+                    const accClass = getAccuracyClass(stat.accuracy);
+                    intervalHtml += `
+                        <div class="accuracy-stat-item">
+                            <span class="label">${intv}</span>
+                            <span class="value ${accClass}">${stat.accuracy}%</span>
+                            <span style="color:#555;font-size:11px">(${stat.correct}/${stat.total})</span>
+                        </div>
+                    `;
+                }
+            }
+
+            // 按置信度统计
+            let confidenceHtml = '';
+            const confidenceOrder = ['极高', '高', '中高', '中', '低'];
+            for (const conf of confidenceOrder) {
+                const stat = data.by_confidence[conf];
+                if (stat) {
+                    const accClass = getAccuracyClass(stat.accuracy);
+                    confidenceHtml += `
+                        <div class="accuracy-stat-item">
+                            <span class="label">${conf}</span>
+                            <span class="value ${accClass}">${stat.accuracy}%</span>
+                            <span style="color:#555;font-size:11px">(${stat.correct}/${stat.total})</span>
+                        </div>
+                    `;
+                }
+            }
+
+            section.innerHTML = `
+                <div class="accuracy-card">
+                    <div class="accuracy-header">
+                        <span class="accuracy-title">📊 预测准确率统计</span>
+                        <span class="accuracy-overall ${overallClass}">${data.overall_accuracy}%</span>
+                    </div>
+                    <div class="accuracy-stats">
+                        <div class="accuracy-stat-group">
+                            <div class="accuracy-stat-title">按周期</div>
+                            <div class="accuracy-stat-items">${intervalHtml || '<span style="color:#666">暂无数据</span>'}</div>
+                        </div>
+                        <div class="accuracy-stat-group">
+                            <div class="accuracy-stat-title">按置信度</div>
+                            <div class="accuracy-stat-items">${confidenceHtml || '<span style="color:#666">暂无数据</span>'}</div>
+                        </div>
+                    </div>
+                    <div class="accuracy-meta">
+                        <span>已验证: ${data.verified_count} 条</span>
+                        <span>正确: ${data.correct_count} 条</span>
+                        <span>待验证: ${data.pending_count} 条</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function fetchAccuracy() {
+            try {
+                const response = await fetch('/api/accuracy');
+                const result = await response.json();
+                if (result.success) {
+                    renderAccuracyStats(result.data);
+                }
+            } catch (error) {
+                console.error('获取准确率数据失败:', error);
+            }
+        }
+
         async function fetchData() {
             const status = document.getElementById('status');
             status.textContent = '刷新中';
@@ -564,8 +745,13 @@
             }
         }
 
+        // 初始化加载
         fetchData();
+        fetchAccuracy();
+
+        // 定时刷新
         setInterval(fetchData, refreshInterval);
+        setInterval(fetchAccuracy, refreshInterval * 2);  // 准确率刷新频率减半
     </script>
 </body>
 </html>

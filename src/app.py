@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from data_cache import get_cache
 from collector import get_klines
 from indicators import calculate_all_indicators
+from prediction_tracker import get_tracker
 from config import REFRESH_INTERVAL, SYMBOLS, INTERVALS
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
@@ -134,6 +135,18 @@ def get_cache_stats():
             'background_running': stats['background_running']
         }
     })
+
+
+@app.route('/api/accuracy')
+def get_accuracy():
+    """获取预测准确率统计"""
+    try:
+        tracker = get_tracker()
+        stats = tracker.get_accuracy_stats()
+        return jsonify({'success': True, 'data': stats})
+    except Exception as e:
+        import traceback
+        return jsonify({'success': False, 'error': str(e), 'trace': traceback.format_exc()})
 
 
 @app.route('/api/klines')
