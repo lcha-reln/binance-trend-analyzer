@@ -6,18 +6,27 @@ Web服务入口
 
 import os
 import sys
+import atexit
 from flask import Flask, render_template, jsonify, request
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from analyzer import TrendAnalyzer
+from data_cache import get_cache
 from collector import get_klines
 from indicators import calculate_all_indicators
 from config import REFRESH_INTERVAL, SYMBOLS, INTERVALS
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
-analyzer = TrendAnalyzer()
+
+# 获取全局缓存实例
+cache = get_cache()
+
+# 启动后台更新（每30秒更新一次）
+cache.start_background_update(interval=30.0)
+
+# 注册退出时停止后台线程
+atexit.register(cache.stop_background_update)
 
 
 @app.route('/')
@@ -34,13 +43,18 @@ def chart():
 
 @app.route('/api/analysis')
 def get_analysis():
-    """获取分析数据API"""
+    """获取分析数据API（使用缓存，秒级响应）"""
     try:
-        results = analyzer.analyze_all()
+        # 从缓存获取分析结果
+        results = cache.get_full_analysis()
+
+        # 获取缓存统计
+        cache_stats = cache.get_cache_stats()
 
         # 转换数据格式
         data = {
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'cache_age': round(cache_stats.get('analysis_age') or 0, 1),
             'symbols': {}
         }
 
@@ -103,7 +117,23 @@ def get_analysis():
 
         return jsonify({'success': True, 'data': data})
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        import traceback
+        return jsonify({'success': False, 'error': str(e), 'trace': traceback.format_exc()})
+
+
+@app.route('/api/cache-stats')
+def get_cache_stats():
+    """获取缓存状态（用于调试）"""
+    stats = cache.get_cache_stats()
+    return jsonify({
+        'success': True,
+        'data': {
+            'cached_items': stats['cached_items'],
+            'analysis_age_seconds': round(stats['analysis_age'] or 0, 1),
+            'is_updating': stats['is_updating'],
+            'background_running': stats['background_running']
+        }
+    })
 
 
 @app.route('/api/klines')
