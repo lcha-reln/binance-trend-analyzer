@@ -526,3 +526,268 @@ class TrendPredictor:
             'obv_divergence': obv_analysis,
             'trend_confirmation': trend_confirmation
         }
+
+    def generate_trading_advice(self, support_levels: list = None, resistance_levels: list = None) -> Dict:
+        """
+        生成交易建议（是否开仓、止盈止损）
+
+        Args:
+            support_levels: 支撑位列表
+            resistance_levels: 阻力位列表
+
+        Returns:
+            交易建议字典
+        """
+        prediction = self.get_comprehensive_prediction()
+        latest = self.df.iloc[-1]
+        current_price = latest['close']
+
+        # ATR用于计算止损
+        atr = latest.get('ATR', current_price * 0.02)  # 默认2%
+
+        # 获取趋势强度和方向
+        score = prediction['score']
+        confidence = prediction['confidence']
+        direction = prediction['overall_direction']
+        trend_strength = prediction['trend_strength']
+
+        # 计算波动率（用于杠杆建议）
+        atr_percent = (atr / current_price) * 100  # ATR占价格的百分比
+
+        # 初始化建议
+        advice = {
+            'action': '观望',           # 观望/做多/做空
+            'action_en': 'wait',
+            'reason': '',               # 原因说明
+            'entry_price': current_price,
+            'stop_loss': None,
+            'stop_loss_percent': None,
+            'take_profit_1': None,      # 第一止盈位
+            'take_profit_2': None,      # 第二止盈位
+            'take_profit_3': None,      # 第三止盈位
+            'risk_reward_ratio': None,  # 风险收益比
+            'position_suggestion': '',  # 仓位建议
+            'leverage_suggestion': '',  # 杠杆建议
+            'max_leverage': None,       # 建议最大杠杆
+            'safe_leverage': None,      # 安全杠杆
+            'risk_level': '中',         # 风险等级
+            'key_points': [],           # 关键提示
+        }
+
+        # 判断是否建议开仓
+        should_open = False
+        is_long = False
+
+        # 强烈信号且高置信度
+        if confidence in ['极高', '高'] and trend_strength['strength_score'] >= 1.0:
+            if '看涨' in direction or direction == '偏多':
+                should_open = True
+                is_long = True
+                advice['action'] = '建议做多'
+                advice['action_en'] = 'long'
+            elif '看跌' in direction or direction == '偏空':
+                should_open = True
+                is_long = False
+                advice['action'] = '建议做空'
+                advice['action_en'] = 'short'
+
+        # 中等信号
+        elif confidence == '中高':
+            if '看涨' in direction:
+                should_open = True
+                is_long = True
+                advice['action'] = '可考虑做多'
+                advice['action_en'] = 'long'
+            elif '看跌' in direction:
+                should_open = True
+                is_long = False
+                advice['action'] = '可考虑做空'
+                advice['action_en'] = 'short'
+
+        # 不建议开仓的情况
+        if not should_open:
+            # 分析原因
+            reasons = []
+            if trend_strength['strength_score'] < 1.0:
+                reasons.append('ADX显示趋势不明确')
+            if confidence in ['低', '中']:
+                reasons.append('信号置信度不足')
+            if '震荡' in direction:
+                reasons.append('市场处于震荡区间')
+
+            advice['reason'] = '，'.join(reasons) if reasons else '无明确交易信号'
+            advice['key_points'] = [
+                '当前市场方向不明确，建议等待更清晰的信号',
+                '可关注关键支撑阻力位的突破情况',
+                '保持耐心，避免频繁交易'
+            ]
+            advice['risk_level'] = '高' if trend_strength['strength_score'] < 0.8 else '中'
+            return advice
+
+        # 计算止损位
+        if is_long:
+            # 做多止损：使用ATR或支撑位
+            atr_stop = current_price - (atr * 1.5)
+            if support_levels and len(support_levels) > 0:
+                nearest_support = max([s for s in support_levels if s < current_price], default=atr_stop)
+                # 止损设在支撑位下方一点
+                support_stop = nearest_support * 0.995
+                advice['stop_loss'] = max(atr_stop, support_stop)
+            else:
+                advice['stop_loss'] = atr_stop
+
+            advice['stop_loss_percent'] = ((current_price - advice['stop_loss']) / current_price) * 100
+
+            # 计算止盈位
+            risk = current_price - advice['stop_loss']
+            advice['take_profit_1'] = current_price + (risk * 1.5)  # 1.5倍风险
+            advice['take_profit_2'] = current_price + (risk * 2.5)  # 2.5倍风险
+            advice['take_profit_3'] = current_price + (risk * 4.0)  # 4倍风险
+
+            # 如果有阻力位，调整止盈
+            if resistance_levels and len(resistance_levels) > 0:
+                nearest_resistance = min([r for r in resistance_levels if r > current_price], default=None)
+                if nearest_resistance:
+                    # 第一止盈不超过最近阻力位
+                    advice['take_profit_1'] = min(advice['take_profit_1'], nearest_resistance * 0.998)
+
+            advice['reason'] = f"多头信号明确，ADX={trend_strength['adx']:.1f}显示{trend_strength['strength']}"
+
+        else:
+            # 做空止损：使用ATR或阻力位
+            atr_stop = current_price + (atr * 1.5)
+            if resistance_levels and len(resistance_levels) > 0:
+                nearest_resistance = min([r for r in resistance_levels if r > current_price], default=atr_stop)
+                # 止损设在阻力位上方一点
+                resistance_stop = nearest_resistance * 1.005
+                advice['stop_loss'] = min(atr_stop, resistance_stop)
+            else:
+                advice['stop_loss'] = atr_stop
+
+            advice['stop_loss_percent'] = ((advice['stop_loss'] - current_price) / current_price) * 100
+
+            # 计算止盈位
+            risk = advice['stop_loss'] - current_price
+            advice['take_profit_1'] = current_price - (risk * 1.5)
+            advice['take_profit_2'] = current_price - (risk * 2.5)
+            advice['take_profit_3'] = current_price - (risk * 4.0)
+
+            # 如果有支撑位，调整止盈
+            if support_levels and len(support_levels) > 0:
+                nearest_support = max([s for s in support_levels if s < current_price], default=None)
+                if nearest_support:
+                    advice['take_profit_1'] = max(advice['take_profit_1'], nearest_support * 1.002)
+
+            advice['reason'] = f"空头信号明确，ADX={trend_strength['adx']:.1f}显示{trend_strength['strength']}"
+
+        # 计算风险收益比
+        risk_amount = abs(current_price - advice['stop_loss'])
+        reward_amount = abs(advice['take_profit_1'] - current_price)
+        advice['risk_reward_ratio'] = round(reward_amount / risk_amount, 2) if risk_amount > 0 else 0
+
+        # 仓位建议
+        if confidence == '极高':
+            advice['position_suggestion'] = '可用30-50%仓位'
+            advice['risk_level'] = '低'
+        elif confidence == '高':
+            advice['position_suggestion'] = '建议20-30%仓位'
+            advice['risk_level'] = '中低'
+        elif confidence == '中高':
+            advice['position_suggestion'] = '建议10-20%仓位'
+            advice['risk_level'] = '中'
+        else:
+            advice['position_suggestion'] = '建议轻仓试探(5-10%)'
+            advice['risk_level'] = '中高'
+
+        # 杠杆倍数建议
+        # 基于止损百分比计算安全杠杆（爆仓风险控制在止损点）
+        # 公式：最大杠杆 = 100 / 止损百分比 * 安全系数
+        stop_loss_pct = advice['stop_loss_percent'] or 3.0  # 默认3%止损
+
+        # 基础杠杆计算（保证止损不爆仓）
+        base_leverage = 100 / stop_loss_pct * 0.8  # 0.8是安全系数
+
+        # 根据置信度调整杠杆
+        if confidence == '极高':
+            confidence_multiplier = 1.0
+            max_allowed = 20
+        elif confidence == '高':
+            confidence_multiplier = 0.8
+            max_allowed = 15
+        elif confidence == '中高':
+            confidence_multiplier = 0.6
+            max_allowed = 10
+        else:
+            confidence_multiplier = 0.4
+            max_allowed = 5
+
+        # 根据趋势强度调整
+        if trend_strength['strength_score'] >= 1.5:
+            trend_multiplier = 1.2  # 强趋势可适当提高
+        elif trend_strength['strength_score'] >= 1.0:
+            trend_multiplier = 1.0
+        else:
+            trend_multiplier = 0.7  # 弱趋势降低杠杆
+
+        # 根据波动率调整（波动大则降低杠杆）
+        if atr_percent > 5:
+            volatility_multiplier = 0.5  # 高波动
+        elif atr_percent > 3:
+            volatility_multiplier = 0.7
+        elif atr_percent > 2:
+            volatility_multiplier = 0.85
+        else:
+            volatility_multiplier = 1.0  # 低波动
+
+        # 计算最终杠杆建议
+        calculated_leverage = base_leverage * confidence_multiplier * trend_multiplier * volatility_multiplier
+        max_leverage = min(int(calculated_leverage), max_allowed)
+        safe_leverage = max(2, int(max_leverage * 0.6))  # 安全杠杆为最大的60%
+
+        # 确保杠杆在合理范围内
+        max_leverage = max(2, min(max_leverage, 50))
+        safe_leverage = max(2, min(safe_leverage, max_leverage))
+
+        advice['max_leverage'] = max_leverage
+        advice['safe_leverage'] = safe_leverage
+
+        # 生成杠杆建议文字
+        if max_leverage <= 3:
+            advice['leverage_suggestion'] = f'建议低杠杆 {safe_leverage}-{max_leverage}x（高风险市况）'
+        elif max_leverage <= 5:
+            advice['leverage_suggestion'] = f'建议谨慎 {safe_leverage}-{max_leverage}x'
+        elif max_leverage <= 10:
+            advice['leverage_suggestion'] = f'可用 {safe_leverage}-{max_leverage}x'
+        elif max_leverage <= 15:
+            advice['leverage_suggestion'] = f'可用 {safe_leverage}-{max_leverage}x（趋势明确）'
+        else:
+            advice['leverage_suggestion'] = f'可用 {safe_leverage}-{max_leverage}x（强趋势）'
+
+        # 关键提示
+        advice['key_points'] = []
+
+        # 动量提示
+        momentum = prediction['momentum']
+        if '加速' in momentum['signal']:
+            advice['key_points'].append(f"动量{momentum['signal']}，趋势可能延续")
+        elif '减弱' in momentum['signal']:
+            advice['key_points'].append(f"注意：{momentum['signal']}，可能出现回调")
+
+        # OBV提示
+        obv = prediction['obv_divergence']
+        if '背离' in obv['signal']:
+            advice['key_points'].append(f"警告：出现{obv['signal']}，谨慎操作")
+
+        # 止损提示
+        advice['key_points'].append(f"严格止损，最大亏损控制在{advice['stop_loss_percent']:.1f}%")
+
+        # 杠杆提示
+        if max_leverage <= 5:
+            advice['key_points'].append(f"当前波动较大，建议使用{safe_leverage}x以下杠杆")
+        else:
+            advice['key_points'].append(f"杠杆建议：稳健{safe_leverage}x，激进不超过{max_leverage}x")
+
+        # 分批止盈提示
+        advice['key_points'].append("建议分批止盈：TP1平30%，TP2平40%，TP3平30%")
+
+        return advice

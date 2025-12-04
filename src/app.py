@@ -56,6 +56,9 @@ def get_analysis():
 
                 pred = interval_data['prediction']
 
+                # 获取交易建议
+                advice = interval_data.get('trading_advice', {})
+
                 # 简化数据
                 data['symbols'][symbol]['intervals'][interval] = {
                     'current_price': interval_data['current_price'],
@@ -69,6 +72,24 @@ def get_analysis():
                         'trend_strength': pred.get('trend_strength', {}),
                         'momentum': pred.get('momentum', {}),
                         'obv_divergence': pred.get('obv_divergence', {}),
+                    },
+                    'trading_advice': {
+                        'action': advice.get('action', '观望'),
+                        'action_en': advice.get('action_en', 'wait'),
+                        'reason': advice.get('reason', ''),
+                        'entry_price': advice.get('entry_price'),
+                        'stop_loss': advice.get('stop_loss'),
+                        'stop_loss_percent': advice.get('stop_loss_percent'),
+                        'take_profit_1': advice.get('take_profit_1'),
+                        'take_profit_2': advice.get('take_profit_2'),
+                        'take_profit_3': advice.get('take_profit_3'),
+                        'risk_reward_ratio': advice.get('risk_reward_ratio'),
+                        'position_suggestion': advice.get('position_suggestion', ''),
+                        'leverage_suggestion': advice.get('leverage_suggestion', ''),
+                        'max_leverage': advice.get('max_leverage'),
+                        'safe_leverage': advice.get('safe_leverage'),
+                        'risk_level': advice.get('risk_level', '中'),
+                        'key_points': advice.get('key_points', []),
                     },
                     'indicators': {
                         'rsi': interval_data['indicators'].get('RSI'),

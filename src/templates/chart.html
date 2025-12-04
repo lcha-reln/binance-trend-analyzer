@@ -120,10 +120,78 @@
             border-radius: 4px;
             font-size: 12px;
             margin: 2px;
+            cursor: help;
+            position: relative;
         }
         .pattern-tag.bullish { background: rgba(0,212,170,0.2); color: #00d4aa; }
         .pattern-tag.bearish { background: rgba(255,107,107,0.2); color: #ff6b6b; }
         .pattern-tag.neutral { background: rgba(255,255,255,0.1); color: #888; }
+
+        /* 悬浮提示卡片 */
+        .pattern-tooltip {
+            position: fixed;
+            background: linear-gradient(135deg, #2a2a4a 0%, #1e1e3a 100%);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 10px;
+            padding: 14px 16px;
+            min-width: 240px;
+            max-width: 300px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            z-index: 1000;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(5px);
+            transition: opacity 0.2s, transform 0.2s;
+        }
+        .pattern-tooltip.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .pattern-tooltip .tooltip-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .pattern-tooltip .tooltip-icon {
+            font-size: 18px;
+        }
+        .pattern-tooltip .tooltip-title {
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .pattern-tooltip .tooltip-type {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: auto;
+        }
+        .pattern-tooltip .tooltip-type.bullish {
+            background: rgba(0,212,170,0.2);
+            color: #00d4aa;
+        }
+        .pattern-tooltip .tooltip-type.bearish {
+            background: rgba(255,107,107,0.2);
+            color: #ff6b6b;
+        }
+        .pattern-tooltip .tooltip-desc {
+            font-size: 13px;
+            line-height: 1.5;
+            color: #ccc;
+            margin-bottom: 10px;
+        }
+        .pattern-tooltip .tooltip-signal {
+            font-size: 12px;
+            color: #888;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .pattern-tooltip .tooltip-signal::before {
+            content: '💡';
+        }
 
         .level-item {
             display: flex;
@@ -182,6 +250,9 @@
         </div>
     </div>
 
+    <!-- 悬浮提示卡片 -->
+    <div class="pattern-tooltip" id="patternTooltip"></div>
+
     <div class="chart-container">
         <div id="chart">
             <div class="loading">加载中...</div>
@@ -232,6 +303,189 @@
             patterns: true,
             sr: true
         };
+
+        // K线形态说明字典
+        const patternDescriptions = {
+            '锤子线': {
+                icon: '🔨',
+                type: 'bullish',
+                typeName: '看涨反转',
+                desc: '下影线很长（至少为实体的2倍），上影线很短或没有。出现在下跌趋势末端，表示买方开始入场。',
+                signal: '考虑在确认后做多，止损设在锤子线低点下方'
+            },
+            '倒锤子线': {
+                icon: '🔨',
+                type: 'bullish',
+                typeName: '看涨反转',
+                desc: '上影线很长（至少为实体的2倍），下影线很短或没有。出现在下跌趋势末端，表示空头力量衰竭。',
+                signal: '需要下一根阳线确认，之后可考虑做多'
+            },
+            '上吊线': {
+                icon: '☠️',
+                type: 'bearish',
+                typeName: '看跌反转',
+                desc: '形态与锤子线相同，但出现在上涨趋势顶部。表示卖压开始增加，买方力量减弱。',
+                signal: '警惕趋势反转，考虑减仓或止盈'
+            },
+            '射击之星': {
+                icon: '⭐',
+                type: 'bearish',
+                typeName: '看跌反转',
+                desc: '上影线很长，实体小，下影线很短。出现在上涨趋势顶部，表示价格冲高后遭到抛售。',
+                signal: '强烈的顶部信号，考虑做空或止盈'
+            },
+            '十字星': {
+                icon: '✚',
+                type: 'neutral',
+                typeName: '犹豫信号',
+                desc: '开盘价与收盘价几乎相等，形成十字形。表示多空双方力量均衡，市场犹豫不决。',
+                signal: '关注后续K线方向，可能预示趋势转变'
+            },
+            '长腿十字星': {
+                icon: '✚',
+                type: 'neutral',
+                typeName: '强犹豫信号',
+                desc: '上下影线都很长的十字星。表示盘中剧烈波动，但最终多空平衡，市场方向不明。',
+                signal: '高度不确定性，等待明确方向再操作'
+            },
+            '蜻蜓十字星': {
+                icon: '🪰',
+                type: 'bullish',
+                typeName: '潜在看涨',
+                desc: '只有下影线的十字星（T字形）。表示价格下探后被拉回，买方力量较强。',
+                signal: '出现在底部时看涨信号较强'
+            },
+            '墓碑十字星': {
+                icon: '🪦',
+                type: 'bearish',
+                typeName: '潜在看跌',
+                desc: '只有上影线的十字星（倒T字形）。表示价格冲高后被打压，卖方力量较强。',
+                signal: '出现在顶部时看跌信号较强'
+            },
+            '看涨吞没': {
+                icon: '🟢',
+                type: 'bullish',
+                typeName: '强看涨反转',
+                desc: '大阳线完全吞没前一根阴线的实体。表示买方力量强势接管，是强烈的反转信号。',
+                signal: '重要的底部反转信号，可在确认后积极做多'
+            },
+            '看跌吞没': {
+                icon: '🔴',
+                type: 'bearish',
+                typeName: '强看跌反转',
+                desc: '大阴线完全吞没前一根阳线的实体。表示卖方力量强势接管，是强烈的反转信号。',
+                signal: '重要的顶部反转信号，应考虑止盈或做空'
+            },
+            '乌云盖顶': {
+                icon: '☁️',
+                type: 'bearish',
+                typeName: '看跌反转',
+                desc: '阴线开盘高于前阳线最高价，收盘深入前阳线实体中部以下。表示上涨动能减弱。',
+                signal: '顶部警告信号，考虑减仓'
+            },
+            '刺透形态': {
+                icon: '🗡️',
+                type: 'bullish',
+                typeName: '看涨反转',
+                desc: '阳线开盘低于前阴线最低价，收盘突破前阴线实体中部以上。表示下跌动能减弱。',
+                signal: '底部反转信号，可考虑试探性做多'
+            },
+            '早晨之星': {
+                icon: '🌅',
+                type: 'bullish',
+                typeName: '强看涨反转',
+                desc: '三根K线组合：大阴线 + 小实体（缺口向下）+ 大阳线。是经典的底部反转形态。',
+                signal: '可靠的做多信号，尤其在重要支撑位附近'
+            },
+            '黄昏之星': {
+                icon: '🌆',
+                type: 'bearish',
+                typeName: '强看跌反转',
+                desc: '三根K线组合：大阳线 + 小实体（缺口向上）+ 大阴线。是经典的顶部反转形态。',
+                signal: '可靠的卖出信号，尤其在重要阻力位附近'
+            },
+            '三只白兵': {
+                icon: '📈',
+                type: 'bullish',
+                typeName: '趋势确认',
+                desc: '连续三根阳线，每根都创新高且收盘在高位附近。表示强劲的上涨动能。',
+                signal: '趋势延续信号，可顺势做多'
+            },
+            '三只黑鸦': {
+                icon: '📉',
+                type: 'bearish',
+                typeName: '趋势确认',
+                desc: '连续三根阴线，每根都创新低且收盘在低位附近。表示强劲的下跌动能。',
+                signal: '趋势延续信号，应回避做多'
+            },
+            '大阳线': {
+                icon: '🟩',
+                type: 'bullish',
+                typeName: '强势信号',
+                desc: '实体很长的阳线，表示买方完全主导市场，价格大幅上涨。',
+                signal: '强势上涨信号，但注意追高风险'
+            },
+            '大阴线': {
+                icon: '🟥',
+                type: 'bearish',
+                typeName: '弱势信号',
+                desc: '实体很长的阴线，表示卖方完全主导市场，价格大幅下跌。',
+                signal: '强势下跌信号，回避做多'
+            }
+        };
+
+        // 提示卡片逻辑
+        const tooltip = document.getElementById('patternTooltip');
+        let tooltipTimeout = null;
+
+        function showTooltip(patternName, event) {
+            const info = patternDescriptions[patternName];
+            if (!info) return;
+
+            tooltip.innerHTML = `
+                <div class="tooltip-header">
+                    <span class="tooltip-icon">${info.icon}</span>
+                    <span class="tooltip-title">${patternName}</span>
+                    <span class="tooltip-type ${info.type}">${info.typeName}</span>
+                </div>
+                <div class="tooltip-desc">${info.desc}</div>
+                <div class="tooltip-signal">${info.signal}</div>
+            `;
+
+            // 计算位置
+            const rect = event.target.getBoundingClientRect();
+            let left = rect.left;
+            let top = rect.bottom + 8;
+
+            // 防止超出屏幕右边
+            if (left + 300 > window.innerWidth) {
+                left = window.innerWidth - 310;
+            }
+            // 防止超出屏幕底部
+            if (top + 200 > window.innerHeight) {
+                top = rect.top - 180;
+            }
+
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
+            tooltip.classList.add('visible');
+        }
+
+        function hideTooltip() {
+            tooltip.classList.remove('visible');
+        }
+
+        function attachTooltipEvents() {
+            document.querySelectorAll('.pattern-tag').forEach(tag => {
+                tag.addEventListener('mouseenter', (e) => {
+                    if (tooltipTimeout) clearTimeout(tooltipTimeout);
+                    showTooltip(tag.textContent.trim(), e);
+                });
+                tag.addEventListener('mouseleave', () => {
+                    tooltipTimeout = setTimeout(hideTooltip, 100);
+                });
+            });
+        }
 
         function initChart() {
             const container = document.getElementById('chart');
@@ -410,6 +664,8 @@
                 patternsList.innerHTML = recentPatterns.map(p =>
                     `<span class="pattern-tag ${p.type}">${p.pattern}</span>`
                 ).join('');
+                // 绑定悬浮提示事件
+                attachTooltipEvents();
             } else {
                 patternsList.innerHTML = '<span class="neutral">暂无形态</span>';
             }

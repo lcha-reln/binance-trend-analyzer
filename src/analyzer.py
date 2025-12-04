@@ -50,6 +50,17 @@ class TrendAnalyzer:
 
         # 构建结果
         latest = df.iloc[-1]
+
+        # 获取支撑阻力位
+        support_levels = latest.get('support_levels', [])
+        resistance_levels = latest.get('resistance_levels', [])
+
+        # 生成交易建议
+        trading_advice = predictor.generate_trading_advice(
+            support_levels=support_levels,
+            resistance_levels=resistance_levels
+        )
+
         result = {
             'symbol': symbol,
             'interval': interval,
@@ -74,7 +85,12 @@ class TrendAnalyzer:
                 'BOLL_Lower': latest.get('BOLL_Lower'),
                 'ATR': latest.get('ATR'),
             },
-            'prediction': prediction
+            'prediction': prediction,
+            'trading_advice': trading_advice,
+            'pattern': latest.get('pattern', ''),
+            'pattern_type': latest.get('pattern_type', ''),
+            'nearest_support': latest.get('nearest_support'),
+            'nearest_resistance': latest.get('nearest_resistance'),
         }
 
         return result

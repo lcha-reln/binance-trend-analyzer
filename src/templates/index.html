@@ -110,6 +110,154 @@
         .confidence-medium { background: #f39c12; }
         .confidence-low { background: #666; }
 
+        /* 交易建议卡片样式 */
+        .advice-box {
+            background: linear-gradient(135deg, rgba(30,30,50,0.9), rgba(20,20,40,0.9));
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 15px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .advice-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .advice-title {
+            font-size: 14px;
+            color: #888;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .advice-action {
+            font-size: 18px;
+            font-weight: bold;
+            padding: 6px 16px;
+            border-radius: 8px;
+        }
+        .advice-action.long {
+            background: rgba(0,212,170,0.2);
+            color: #00d4aa;
+            border: 1px solid rgba(0,212,170,0.3);
+        }
+        .advice-action.short {
+            background: rgba(255,107,107,0.2);
+            color: #ff6b6b;
+            border: 1px solid rgba(255,107,107,0.3);
+        }
+        .advice-action.wait {
+            background: rgba(255,255,255,0.1);
+            color: #888;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .advice-reason {
+            font-size: 13px;
+            color: #aaa;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+        }
+        .advice-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+        .advice-item {
+            background: rgba(255,255,255,0.03);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .advice-item .label {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        .advice-item .value {
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .advice-item .value.bullish { color: #00d4aa; }
+        .advice-item .value.bearish { color: #ff6b6b; }
+        .advice-item .value.neutral { color: #f39c12; }
+        .advice-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .risk-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+        .risk-badge.low { background: rgba(39,174,96,0.2); color: #27ae60; }
+        .risk-badge.medium { background: rgba(243,156,18,0.2); color: #f39c12; }
+        .risk-badge.high { background: rgba(231,76,60,0.2); color: #e74c3c; }
+
+        /* 杠杆建议样式 */
+        .leverage-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(135deg, rgba(243,156,18,0.1), rgba(230,126,34,0.1));
+            border: 1px solid rgba(243,156,18,0.2);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-top: 12px;
+        }
+        .leverage-icon {
+            font-size: 18px;
+        }
+        .leverage-text {
+            flex: 1;
+            font-size: 13px;
+            color: #f39c12;
+        }
+        .leverage-badge {
+            background: rgba(243,156,18,0.2);
+            color: #f39c12;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .advice-tips {
+            background: rgba(255,255,255,0.02);
+            border-radius: 8px;
+            padding: 12px;
+        }
+        .advice-tips .tip-title {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        .advice-tips ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .advice-tips li {
+            font-size: 12px;
+            color: #aaa;
+            padding: 4px 0;
+            padding-left: 16px;
+            position: relative;
+        }
+        .advice-tips li::before {
+            content: '•';
+            position: absolute;
+            left: 0;
+            color: #4a90d9;
+        }
+
         .footer {
             text-align: center;
             padding: 30px 0;
@@ -120,6 +268,8 @@
         @media (max-width: 768px) {
             .intervals-grid { grid-template-columns: repeat(2, 1fr); }
             .symbols-grid { grid-template-columns: 1fr; }
+            .advice-grid { grid-template-columns: repeat(2, 1fr); }
+            .advice-meta { flex-direction: column; gap: 8px; align-items: flex-start; }
         }
         @media (max-width: 1024px) and (min-width: 769px) {
             .intervals-grid { grid-template-columns: repeat(3, 1fr); }
@@ -181,6 +331,83 @@
                                  : price.toFixed(4);
         }
 
+        function getRiskClass(riskLevel) {
+            if (riskLevel === '低' || riskLevel === '中低') return 'low';
+            if (riskLevel === '高' || riskLevel === '中高') return 'high';
+            return 'medium';
+        }
+
+        function renderAdviceBox(advice, interval) {
+            if (!advice) return '';
+
+            const actionClass = advice.action_en || 'wait';
+            const isOpen = actionClass !== 'wait';
+
+            let priceGridHtml = '';
+            if (isOpen && advice.stop_loss) {
+                const slClass = actionClass === 'long' ? 'bearish' : 'bullish';
+                const tp1Class = actionClass === 'long' ? 'bullish' : 'bearish';
+
+                priceGridHtml = `
+                    <div class="advice-grid">
+                        <div class="advice-item">
+                            <div class="label">止损价</div>
+                            <div class="value ${slClass}">$${formatPrice(advice.stop_loss)}</div>
+                        </div>
+                        <div class="advice-item">
+                            <div class="label">止盈1 (30%)</div>
+                            <div class="value ${tp1Class}">$${formatPrice(advice.take_profit_1)}</div>
+                        </div>
+                        <div class="advice-item">
+                            <div class="label">止盈2 (40%)</div>
+                            <div class="value ${tp1Class}">$${formatPrice(advice.take_profit_2)}</div>
+                        </div>
+                        <div class="advice-item">
+                            <div class="label">止盈3 (30%)</div>
+                            <div class="value ${tp1Class}">$${formatPrice(advice.take_profit_3)}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            const tipsHtml = advice.key_points && advice.key_points.length > 0
+                ? `<div class="advice-tips">
+                       <div class="tip-title">关键提示</div>
+                       <ul>${advice.key_points.map(tip => `<li>${tip}</li>`).join('')}</ul>
+                   </div>`
+                : '';
+
+            const leverageHtml = isOpen && advice.max_leverage
+                ? `<div class="leverage-box">
+                       <span class="leverage-icon">⚡</span>
+                       <span class="leverage-text">${advice.leverage_suggestion}</span>
+                       <span class="leverage-badge">${advice.safe_leverage}x - ${advice.max_leverage}x</span>
+                   </div>`
+                : '';
+
+            const metaHtml = isOpen
+                ? `<div class="advice-meta">
+                       <span>仓位: ${advice.position_suggestion || '-'}</span>
+                       <span>风险收益比: ${advice.risk_reward_ratio || '-'}</span>
+                       <span class="risk-badge ${getRiskClass(advice.risk_level)}">风险: ${advice.risk_level}</span>
+                   </div>
+                   ${leverageHtml}`
+                : '';
+
+            return `
+                <div class="advice-box">
+                    <div class="advice-header">
+                        <span class="advice-title">📊 ${interval} 交易建议</span>
+                        <span class="advice-action ${actionClass}">${advice.action}</span>
+                    </div>
+                    <div class="advice-reason">${advice.reason || '暂无建议'}</div>
+                    ${priceGridHtml}
+                    ${metaHtml}
+                    ${tipsHtml}
+                </div>
+            `;
+        }
+
         function renderData(data) {
             const container = document.getElementById('symbolsContainer');
             let html = '';
@@ -230,8 +457,17 @@
                             <div class="resonance-signal ${resClass}">${res.signal}</div>
                             <div><span class="resonance-confidence confidence-${confClass}">置信度: ${res.confidence}</span></div>
                         </div>
-                    </div>
                 `;
+
+                // 显示1h周期的交易建议（作为主要参考周期）
+                const primaryInterval = '1h';
+                const primaryData = symbolData.intervals[primaryInterval];
+                if (primaryData && primaryData.trading_advice) {
+                    html += renderAdviceBox(primaryData.trading_advice, primaryInterval);
+                }
+
+                // 关闭 symbol-card div
+                html += `</div>`;
             }
 
             container.innerHTML = html;
