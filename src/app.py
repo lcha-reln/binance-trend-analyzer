@@ -149,6 +149,75 @@ def get_accuracy():
         return jsonify({'success': False, 'error': str(e), 'trace': traceback.format_exc()})
 
 
+@app.route('/api/feedback-learning')
+def get_feedback_learning_status():
+    """获取反馈学习状态"""
+    try:
+        from feedback_learning import get_feedback_db, get_online_learner
+        db = get_feedback_db()
+        learner = get_online_learner()
+
+        # 获取新样本数
+        new_samples = db.get_new_sample_count()
+
+        # 获取训练样本统计
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT COUNT(*) as total,
+                       SUM(CASE WHEN features_json IS NOT NULL THEN 1 ELSE 0 END) as with_features
+                FROM predictions WHERE verified = 1
+            ''')
+            sample_stats = dict(cursor.fetchone())
+
+            # 获取最新模型版本
+            cursor.execute('''
+                SELECT symbol, interval, version, accuracy, train_samples, created_at
+                FROM model_versions WHERE is_active = 1
+                ORDER BY created_at DESC LIMIT 5
+            ''')
+            models = [dict(row) for row in cursor.fetchall()]
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'new_samples_pending': new_samples,
+                'retrain_threshold': 20,
+                'should_retrain': learner.should_retrain(),
+                'verified_samples': sample_stats['total'],
+                'samples_with_features': sample_stats['with_features'],
+                'active_models': models
+            }
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({'success': False, 'error': str(e), 'trace': traceback.format_exc()})
+
+
+@app.route('/api/feedback-learning/train', methods=['POST'])
+def trigger_feedback_training():
+    """手动触发反馈学习训练"""
+    try:
+        from feedback_learning import get_online_learner
+        learner = get_online_learner()
+        result = learner.train(force=True)
+
+        if result:
+            return jsonify({
+                'success': True,
+                'message': '训练完成',
+                'data': result
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': '训练失败或样本不足'
+            })
+    except Exception as e:
+        import traceback
+        return jsonify({'success': False, 'error': str(e), 'trace': traceback.format_exc()})
+
+
 @app.route('/api/klines')
 def get_klines_api():
     """获取K线数据API - 用于图表展示"""

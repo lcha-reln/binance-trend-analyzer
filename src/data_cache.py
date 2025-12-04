@@ -366,7 +366,7 @@ class DataCache:
         # 验证历史预测
         tracker.verify_predictions(current_prices)
 
-        # 记录新预测
+        # 记录新预测（包含特征快照用于反馈学习）
         for symbol, symbol_data in results.items():
             for interval, data in symbol_data.items():
                 if interval == 'resonance' or data is None:
@@ -379,14 +379,70 @@ class DataCache:
                 price = data.get('current_price', 0)
 
                 if direction and price > 0:
+                    # 构建特征快照用于反馈学习
+                    features = self._extract_features_for_learning(data, prediction)
+
                     tracker.record_prediction(
                         symbol=symbol,
                         interval=interval,
                         direction=direction,
                         confidence=confidence,
                         score=score,
-                        price=price
+                        price=price,
+                        features=features
                     )
+
+    def _extract_features_for_learning(self, data: Dict, prediction: Dict) -> Dict:
+        """
+        提取用于反馈学习的特征快照
+
+        Args:
+            data: 周期数据
+            prediction: 预测结果
+
+        Returns:
+            特征字典
+        """
+        indicators = data.get('indicators', {})
+        trend_strength = prediction.get('trend_strength', {})
+        momentum = prediction.get('momentum', {})
+        obv_divergence = prediction.get('obv_divergence', {})
+
+        features = {
+            # 基础指标
+            'rsi': indicators.get('RSI'),
+            'macd_hist': indicators.get('MACD_Hist'),
+
+            # 预测相关
+            'score': prediction.get('score', 0),
+            'raw_score': prediction.get('raw_score', 0),
+            'volume_weight': prediction.get('volume_weight', 1.0),
+            'linear_change_percent': prediction.get('linear_change_percent', 0),
+            'bullish_count': prediction.get('bullish_count', 0),
+            'bearish_count': prediction.get('bearish_count', 0),
+
+            # ADX 趋势强度
+            'adx': trend_strength.get('adx', 0),
+            'adx_strength_score': trend_strength.get('strength_score', 0),
+            'di_score': trend_strength.get('di_score', 0),
+            'plus_di': trend_strength.get('plus_di', 0),
+            'minus_di': trend_strength.get('minus_di', 0),
+
+            # 动量
+            'momentum_score': momentum.get('score', 0),
+
+            # OBV
+            'obv_score': obv_divergence.get('score', 0),
+
+            # 信号相关
+            'signals_rsi_score': prediction.get('signals', {}).get('RSI', {}).get('score', 0),
+            'signals_macd_score': prediction.get('signals', {}).get('MACD', {}).get('score', 0),
+            'signals_ma_score': prediction.get('signals', {}).get('MA', {}).get('score', 0),
+            'signals_boll_score': prediction.get('signals', {}).get('BOLL', {}).get('score', 0),
+        }
+
+        # 过滤 None 值
+        return {k: v for k, v in features.items() if v is not None}
 
     def start_background_update(self, interval: float = 30.0):
         """
