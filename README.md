@@ -1,6 +1,6 @@
 # Binance Trend Analyzer
 
-[![Version](https://img.shields.io/badge/version-1.8.1-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.9.0-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 > 币安交易对趋势分析与预测系统，支持多周期共振分析、智能交易建议、K线形态识别、机器学习预测
@@ -11,15 +11,15 @@
 
 ## 最新更新
 
-### v1.8.1 - 周期选择持久化
-- 用户选择的交易建议周期自动保存到 localStorage
-- 页面刷新或自动数据更新后保持用户选择
-- 每个交易对的周期选择独立保存
+### v1.9.0 - 恐惧贪婪指数
+- 接入 alternative.me Fear & Greed Index API
+- 可视化仪表盘展示市场情绪（0-100）
+- 情绪分析与交易信号建议
+- 辅助判断市场顶底区域
 
-### v1.8.0 - 预测准确率统计
-- 自动记录每次预测并验证准确率
-- 按周期/置信度分类统计
-- 前端实时展示准确率卡片
+### v1.8.1 - 周期选择持久化
+- 用户选择的交易建议周期自动保存
+- 页面刷新后保持用户选择
 
 ---
 
