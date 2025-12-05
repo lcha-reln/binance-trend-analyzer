@@ -1,6 +1,6 @@
 # Binance Trend Analyzer
 
-[![Version](https://img.shields.io/badge/version-1.8.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.8.1-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 > 币安交易对趋势分析与预测系统，支持多周期共振分析、智能交易建议、K线形态识别、机器学习预测
@@ -9,9 +9,14 @@
 
 ---
 
-## 最新更新 v1.8.0
+## 最新更新 v1.8.1
 
-### 预测准确率统计 (NEW)
+### 周期选择持久化 (NEW)
+- 用户选择的交易建议周期自动保存到 localStorage
+- 页面刷新或自动数据更新后保持用户选择
+- 每个交易对的周期选择独立保存
+
+### 预测准确率统计 (v1.8.0)
 - 自动记录每次预测并验证准确率
 - 按周期统计（5m/30m/1h/4h/1d）
 - 按置信度统计（极高/高/中高/中/低）
@@ -20,7 +25,7 @@
 
 ### 多周期交易建议切换 (v1.7.0)
 - 交易建议支持 5m/30m/1h/4h/1d 周期切换
-- Tab 切换，默认显示 1h 周期
+- Tab 切换，支持周期选择持久化
 - 各交易对独立切换，互不影响
 
 ### 性能优化 (v1.6.0)
